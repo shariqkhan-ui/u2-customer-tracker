@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>U2 — Customer Tracker Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:      #0e0010;
+      --card:    #18001a;
+      --card2:   #220020;
+      --border:  #4a0048;
+      --text:    #f5e6f5;
+      --muted:   #b08ab0;
+      --green:   #3fb950;
+      --red:     #f85149;
+      --yellow:  #d29922;
+      --blue:    #388bfd;
+      --purple:  #e066d0;
+      --orange:  #db6d28;
+      --teal:    #39d353;
+      --primary: #D9008D;
+      --primary-light: #ff4dbb;
+      --primary-dim:   #1f0020;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; font-size: 14px;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; opacity: .6; }
+
+    /* ── Header ── */
+    .header {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 14px 24px; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 200;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-logo {
+      font-size: 22px; font-weight: 900; letter-spacing: -.5px;
+      background: linear-gradient(135deg, #D9008D 0%, #ff4dbb 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; white-space: nowrap;
+    }
+    .header-left h1 { display: none; }
+    .header-left p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .header-right   { display: flex; align-items: center; gap: 10px; }
+
+    .btn {
+      padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border);
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: opacity .15s, background .15s; background: var(--card2); color: var(--text);
+    }
+    .btn:hover    { opacity: .85; }
+    .btn-primary  { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn-danger   { background: var(--red);  border-color: var(--red);  color: #fff; }
+
+    /* ── Setup / Config Panel ── */
+    #setupPanel {
+      background: var(--card); border-bottom: 1px solid var(--border); padding: 20px 24px;
+    }
+    .setup-instructions {
+      background: var(--primary-dim); border: 1px solid var(--primary); border-radius: 8px;
+      padding: 14px 18px; margin-bottom: 18px;
+    }
+    .setup-instructions h3 { color: var(--primary-light); font-size: 13px; margin-bottom: 10px; }
+    .setup-instructions ol { padding-left: 18px; color: var(--muted); line-height: 1.9; font-size: 13px; }
+    .setup-instructions code {
+      background: var(--bg); color: var(--primary-light); padding: 1px 6px;
+      border-radius: 4px; font-size: 12px;
+    }
+    .setup-instructions strong { color: var(--text); }
+
+    .config-grid  { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; margin-bottom: 16px; }
+    .cols-grid    { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 10px; }
+    .config-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+    .config-input {
+      width: 100%; padding: 8px 10px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 13px;
+    }
+    .config-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(217,0,141,.15); }
+    .config-section-title {
+      font-size: 11px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .06em; margin: 14px 0 10px; border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+
+    /* ── Main Content ── */
+    .main { padding: 20px 24px; }
+
+    /* ── Status Bar ── */
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 18px; font-size: 12px; color: var(--muted);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot-red    { background: var(--red); }
+    .dot-yellow { background: var(--yellow); animation: blink 1.2s ease infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── KPI Grid ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 18px; position: relative; overflow: hidden;
+    }
+    .kpi-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--accent, var(--primary));
+    }
+    .kpi-card.c-blue   { --accent: var(--primary); }
+    .kpi-card.c-green  { --accent: var(--green); }
+    .kpi-card.c-purple { --accent: var(--purple); }
+    .kpi-card.c-yellow { --accent: var(--yellow); }
+    .kpi-card.c-teal   { --accent: var(--teal); }
+    .kpi-card.c-red    { --accent: var(--red); }
+    .kpi-card.c-orange { --accent: var(--orange); }
+    .kpi-card.c-cyan   { --accent: #0ea5e9; }
+
+    .kpi-icon    { font-size: 22px; margin-bottom: 10px; }
+    .kpi-val     { font-size: 30px; font-weight: 800; line-height: 1; }
+    .kpi-val-amt { font-size: 20px; font-weight: 800; line-height: 1; font-family: monospace; }
+    .kpi-label   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .kpi-pct     { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: monospace; }
+    .amt-cell    { text-align: right; font-family: monospace; font-size: 13px; white-space: nowrap; }
+    tfoot tr.tfoot-row { background: #0a0009; border-top: 2px solid var(--primary); }
+    tfoot tr.tfoot-row td { padding: 10px 16px; font-weight: 700; font-size: 13px; }
+
+    /* ── Charts ── */
+    .charts-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px;
+    }
+    .chart-title {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted); margin-bottom: 14px;
+    }
+    .chart-wrap { position: relative; height: 190px; }
+
+    /* ── Filters ── */
+    .filters-bar {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+      display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: end;
+    }
+    .filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+    .filter-input {
+      width: 100%; padding: 7px 10px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 13px;
+    }
+    .filter-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(217,0,141,.15); }
+
+    /* ── Table ── */
+    .table-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .table-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+    }
+    .table-toolbar h3 { font-size: 14px; font-weight: 600; }
+    .pill { background: var(--bg); padding: 3px 10px; border-radius: 20px; font-size: 12px; color: var(--muted); }
+
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 10px 16px; text-align: left; font-size: 11px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); background: #0a0009; border-bottom: 1px solid var(--border);
+      white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    thead th:hover { color: var(--text); }
+    thead th.sorted { color: var(--primary-light); }
+    tbody tr { border-bottom: 1px solid #2a0028; transition: background .12s; }
+    tbody tr:hover { background: #280026; }
+    tbody td { padding: 11px 16px; font-size: 13px; }
+    tbody tr:last-child { border-bottom: none; }
+    .row-idx { color: var(--muted); font-size: 12px; font-family: monospace; }
+    .mobile-cell { font-family: monospace; color: var(--muted); font-size: 12px; letter-spacing: .04em; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .badge .dot-sm { width: 5px; height: 5px; border-radius: 50%; }
+    .bg-green  { background: rgba(63,185,80,.15);  color: #7ee787; }
+    .bg-green  .dot-sm { background: var(--green); }
+    .bg-red    { background: rgba(248,81,73,.15);   color: #ff7b72; }
+    .bg-red    .dot-sm { background: var(--red); }
+    .bg-yellow { background: rgba(210,153,34,.15);  color: #f0b429; }
+    .bg-yellow .dot-sm { background: var(--yellow); }
+    .bg-blue   { background: rgba(217,0,141,.13);   color: #ff80cc; }
+    .bg-blue   .dot-sm { background: var(--primary); }
+    .bg-purple { background: rgba(188,140,255,.15); color: #d2a8ff; }
+    .bg-purple .dot-sm { background: var(--purple); }
+    .bg-orange { background: rgba(219,109,40,.15);  color: #ffa657; }
+    .bg-orange .dot-sm { background: var(--orange); }
+    .bg-gray   { background: rgba(139,148,158,.12); color: var(--muted); }
+    .bg-gray   .dot-sm { background: #6e7681; }
+
+    /* ── Empty State ── */
+    .empty {
+      text-align: center; padding: 60px 20px; color: var(--muted);
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty h3   { font-size: 15px; margin-bottom: 6px; color: var(--text); }
+
+    /* ── Loading ── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.6); z-index: 999;
+      align-items: center; justify-content: center;
+    }
+    .overlay.show { display: flex; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border); border-top-color: var(--primary);
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 20px; right: 20px; z-index: 1001;
+      padding: 11px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      opacity: 0; transform: translateY(8px); transition: all .25s; max-width: 320px;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast-success { background: #0f2d15; color: #7ee787; border: 1px solid var(--green); }
+    .toast-error   { background: #2d0f0f; color: #ff7b72; border: 1px solid var(--red); }
+    .toast-info    { background: var(--primary-dim); color: var(--primary-light); border: 1px solid var(--primary); }
+
+    /* ── Appointment Buckets ── */
+    .appt-section { margin-bottom: 20px; }
+    .section-hdr  {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-hdr-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted);
+      display: flex; align-items: center; gap: 8px;
+    }
+    /* Old Partner Bucket */
+    .old-partner-bucket {
+      display: flex; align-items: center; gap: 20px;
+      background: linear-gradient(135deg, #1a0a00 0%, #2a1000 100%);
+      border: 1px solid var(--orange); border-radius: 10px;
+      padding: 14px 20px; cursor: default;
+    }
+    .old-partner-icon { font-size: 28px; line-height: 1; }
+    .old-partner-count {
+      font-size: 36px; font-weight: 900; color: var(--orange);
+      line-height: 1; min-width: 48px;
+    }
+    .old-partner-info { flex: 1; }
+    .old-partner-label {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .old-partner-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .old-partner-divider {
+      width: 1px; height: 40px; background: var(--border); flex-shrink: 0;
+    }
+    .old-partner-stat { text-align: center; }
+    .old-partner-stat-val { font-size: 18px; font-weight: 800; color: var(--orange); }
+    .old-partner-stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+    .bucket-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); gap: 10px;
+    }
+    .bucket-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+      cursor: pointer; transition: transform .15s, border-color .2s, background .2s;
+      border-left: 4px solid var(--bc, var(--border));
+      position: relative; user-select: none;
+    }
+    .bucket-card:hover   { transform: translateY(-2px); border-color: var(--bc); }
+    .bucket-card.active  { background: var(--bca); border-color: var(--bc); }
+    .bucket-card.active::after {
+      content: '✓'; position: absolute; top: 8px; right: 10px;
+      font-size: 11px; color: var(--bc); font-weight: 800;
+    }
+    .bucket-icon  { font-size: 20px; margin-bottom: 8px; }
+    .bucket-count { font-size: 28px; font-weight: 800; color: var(--bc); line-height: 1; }
+    .bucket-label { font-size: 12px; color: var(--muted); margin-top: 5px; }
+    .bucket-sub   { font-size: 10px; color: var(--muted); margin-top: 2px; opacity: .7; }
+
+    .bucket-overdue  { --bc: var(--red);     --bca: rgba(248,81,73,.08); }
+    .bucket-today    { --bc: var(--primary); --bca: rgba(217,0,141,.10); }
+    .bucket-tomorrow { --bc: var(--yellow);  --bca: rgba(210,153,34,.08); }
+    .bucket-week     { --bc: var(--teal);    --bca: rgba(57,211,83,.08); }
+    .bucket-upcoming { --bc: #0ea5e9;        --bca: rgba(14,165,233,.07); }
+    .bucket-none     { --bc: var(--muted);   --bca: rgba(176,138,176,.06); }
+
+    .clear-bucket-btn {
+      font-size: 11px; color: var(--primary-light); cursor: pointer;
+      background: none; border: 1px solid var(--primary); border-radius: 6px;
+      padding: 4px 12px; font-weight: 600; transition: background .15s;
+    }
+    .clear-bucket-btn:hover { background: var(--primary-dim); }
+
+    /* ── Appointment Date Badge (in table) ── */
+    .appt-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .appt-overdue  { background: rgba(248,81,73,.15);  color: #ff7b72; }
+    .appt-today    { background: rgba(217,0,141,.18);  color: #ff80cc;
+                     animation: todayPulse 2s ease-in-out infinite; }
+    .appt-tomorrow { background: rgba(210,153,34,.15); color: #f0b429; }
+    .appt-week     { background: rgba(57,211,83,.12);  color: #7ee787; }
+    .appt-upcoming { background: rgba(14,165,233,.12); color: #7dd3fc; }
+    @keyframes todayPulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+    /* ── Demo Banner ── */
+    .demo-banner {
+      background: var(--primary-dim); border: 1px solid var(--primary); border-radius: 8px;
+      padding: 10px 16px; margin-bottom: 16px; font-size: 13px;
+      display: flex; align-items: center; gap: 8px; color: var(--primary-light);
+    }
+
+    /* ── CSV Drop Zone ── */
+    .drop-zone {
+      border: 2px dashed var(--primary); border-radius: 12px;
+      padding: 36px 20px; text-align: center; cursor: pointer;
+      transition: background .2s, border-color .2s; margin-bottom: 14px;
+      background: var(--primary-dim);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      background: rgba(217,0,141,.18); border-color: var(--primary-light);
+    }
+    .drop-zone input[type=file] { display: none; }
+    .drop-zone-icon  { font-size: 40px; margin-bottom: 10px; }
+    .drop-zone h3    { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .drop-zone p     { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .drop-zone .browse-btn {
+      display: inline-block; padding: 8px 20px; background: var(--primary);
+      color: #fff; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; transition: opacity .15s;
+    }
+    .drop-zone .browse-btn:hover { opacity: .85; }
+    .how-steps {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 10px; margin-bottom: 16px;
+    }
+    .how-step {
+      background: var(--card2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+    }
+    .how-step-num {
+      width: 22px; height: 22px; border-radius: 50%; background: var(--primary);
+      color: #fff; font-size: 11px; font-weight: 800; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+    }
+    .how-step-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .how-step-text strong { color: var(--text); }
+
+    /* ── Filter Summary Bar ── */
+    .filter-summary {
+      background: var(--card2); border: 1px solid var(--primary);
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    }
+    .fs-label {
+      font-size: 11px; color: var(--primary-light); font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; white-space: nowrap;
+    }
+    .fs-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .fs-chip .fs-val { font-size: 15px; font-weight: 800; }
+    .fs-chip.total    { background: rgba(217,0,141,.15); color: var(--primary-light); }
+    .fs-chip.green    { background: rgba(63,185,80,.15);  color: #7ee787; }
+    .fs-chip.red      { background: rgba(248,81,73,.15);  color: #ff7b72; }
+    .fs-chip.yellow   { background: rgba(210,153,34,.15); color: #f0b429; }
+    .fs-chip.purple   { background: rgba(224,102,208,.15);color: #e066d0; }
+    .fs-chip.orange   { background: rgba(219,109,40,.15); color: #ffa657; }
+    .fs-chip.cyan     { background: rgba(57,211,83,.12);  color: #39d353; }
+    .fs-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+
+    /* ── Day Summary ── */
+    .day-summary-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px; margin-bottom: 20px;
+    }
+    .day-table-wrap { overflow-x: auto; }
+    .day-table { width: 100%; border-collapse: collapse; min-width: 520px; }
+    .day-table thead th {
+      padding: 9px 14px; text-align: right; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+      background: #0a0009; border-bottom: 2px solid var(--border); white-space: nowrap;
+    }
+    .day-table thead th:first-child { text-align: left; }
+    .day-table tbody tr { border-bottom: 1px solid #2a0028; transition: background .12s; }
+    .day-table tbody tr:last-child { border-bottom: none; }
+    .day-table tbody tr:hover { background: #280026; }
+    .day-table tbody td { padding: 12px 14px; font-size: 13px; text-align: right; }
+    .day-table tbody td:first-child { text-align: left; }
+    .day-label { font-weight: 600; color: var(--text); white-space: nowrap; }
+    .day-sublabel { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+    .day-count { font-size: 22px; font-weight: 800; color: var(--muted); }
+    .day-count.has-data { color: var(--primary-light); }
+    .cum-row { background: #0a0009 !important; }
+    .cum-row td { padding: 11px 14px; font-weight: 700; font-size: 13px;
+                  border-top: 2px solid var(--primary); text-align: right; }
+    .cum-row td:first-child { text-align: left; }
+    .cum-row .day-count { color: var(--primary-light); font-size: 22px; }
+    .day-summary-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .main { padding: 14px; }
+      .header { padding: 12px 14px; }
+      .config-grid { grid-template-columns: 1fr; }
+      .filters-bar { grid-template-columns: 1fr 1fr; }
+      .filters-bar .filter-item:first-child { grid-column: 1/-1; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="overlay" id="overlay"><div class="spinner"></div></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div>
+      <div class="header-logo">U2 Customer Tracker Dashboard</div>
+      <p id="lastUpdated">Not connected yet</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn" onclick="toggleSetup()">⚙️ Setup</button>
+    <button class="btn btn-primary" onclick="loadData()">🔄 Refresh</button>
+  </div>
+</div>
+
+<!-- Setup / Config Panel -->
+<div id="setupPanel">
+
+  <!-- PRIMARY: Publish to web -->
+  <div class="setup-instructions" style="margin-bottom:16px;">
+    <h3>📡 Connect your Google Sheet — One-time setup (2 minutes)</h3>
+    <ol>
+      <li>Open your Google Sheet</li>
+      <li>Click <strong>File</strong> in the top menu → <strong>Share</strong> → <strong>Publish to web</strong></li>
+      <li>In the first dropdown select the tab <strong>"main sheet"</strong></li>
+      <li>In the second dropdown select <strong>Comma-separated values (.csv)</strong></li>
+      <li>Click the <strong>Publish</strong> button → click <strong>OK</strong></li>
+      <li>Copy the link that appears (starts with <code>https://docs.google.com/spreadsheets/d/…/pub?…</code>)</li>
+      <li>Paste it below and click <strong>Connect</strong> ✅</li>
+    </ol>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end; margin-bottom:18px;">
+    <div>
+      <div class="config-label" style="color:var(--primary-light); font-weight:700;">Paste the "Publish to web" link here</div>
+      <input class="config-input" id="inPublishedUrl"
+             placeholder="https://docs.google.com/spreadsheets/d/.../pub?gid=...&single=true&output=csv"
+             oninput="saveConfig()" style="border-color:var(--primary);" />
+    </div>
+    <button class="btn btn-primary" style="height:36px; white-space:nowrap" onclick="loadData()">▶ Connect</button>
+  </div>
+
+  <!-- Secondary fallback: CSV file drop -->
+  <details style="margin-bottom:14px;">
+    <summary style="font-size:11px; color:var(--muted); cursor:pointer; text-transform:uppercase; letter-spacing:.05em; padding:4px 0;">
+      Alternative — Upload a CSV file instead
+    </summary>
+    <div style="margin-top:12px;">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFilePicker').click()"
+           ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <input type="file" id="csvFilePicker" accept=".csv" onchange="handleFileSelect(event)" />
+        <div class="drop-zone-icon">📂</div>
+        <h3>Drop your CSV file here</h3>
+        <p>File → Download → Comma-separated values (.csv) from Google Sheets</p>
+        <label class="browse-btn" onclick="event.stopPropagation(); document.getElementById('csvFilePicker').click()">Browse File</label>
+      </div>
+    </div>
+  </details>
+
+  <!-- Advanced: Apps Script / API Key -->
+  <details style="margin-bottom:14px;">
+    <summary style="font-size:11px; color:var(--muted); cursor:pointer; text-transform:uppercase; letter-spacing:.05em; padding:4px 0;">Advanced — Apps Script URL or API Key</summary>
+    <div style="margin-top:12px;">
+      <div class="config-grid" style="grid-template-columns: 1fr auto; margin-bottom:14px;">
+        <div>
+          <div class="config-label">Apps Script Web App URL</div>
+          <input class="config-input" id="inScriptUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveConfig()" />
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn btn-primary" style="height:36px; white-space:nowrap" onclick="loadData()">▶ Load</button>
+        </div>
+      </div>
+      <div class="config-grid" style="grid-template-columns: 1fr 1fr 1fr auto; margin-bottom:10px;">
+        <div>
+          <div class="config-label">Google API Key</div>
+          <input class="config-input" id="inApiKey" type="password" placeholder="AIzaSy..." oninput="saveConfig()" />
+        </div>
+        <div>
+          <div class="config-label">Sheet ID</div>
+          <input class="config-input" id="inSheetId" value="1a3-7ELS0nxScrFbFR45I9z_QbQdPnqbKIcbHmmujsO8" oninput="saveConfig()" />
+        </div>
+        <div>
+          <div class="config-label">Sheet Tab Name</div>
+          <input class="config-input" id="inSheetName" value="main sheet" oninput="saveConfig()" />
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn" style="height:36px" onclick="testSheetURL()">🔍 Test</button>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <div class="config-section-title">Column Mapping &nbsp;—&nbsp; enter 0-based column index (A=0, B=1, C=2 …)</div>
+  <div class="cols-grid">
+    <div>
+      <div class="config-label">Customer Name</div>
+      <input class="config-input" id="col_name" type="number" min="0" value="0" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Mobile No.</div>
+      <input class="config-input" id="col_mobile" type="number" min="0" value="1" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Recharge Status</div>
+      <input class="config-input" id="col_recharge" type="number" min="0" value="2" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Netbox Picked</div>
+      <input class="config-input" id="col_netbox" type="number" min="0" value="3" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Refund Status</div>
+      <input class="config-input" id="col_refund" type="number" min="0" value="4" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Call Status</div>
+      <input class="config-input" id="col_call" type="number" min="0" value="5" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Plan Refund Amt</div>
+      <input class="config-input" id="col_planAmt" type="number" min="0" value="6" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Device Amount</div>
+      <input class="config-input" id="col_deviceAmt" type="number" min="0" value="7" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Total Amount</div>
+      <input class="config-input" id="col_totalAmt" type="number" min="0" value="8" oninput="saveConfig()" />
+    </div>
+    <div>
+      <div class="config-label">Appointment Date</div>
+      <input class="config-input" id="col_apptDate" type="number" min="0" value="9" oninput="saveConfig()" />
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="dot dot-yellow" id="statusDot"></div>
+    <span id="statusText">Waiting for connection…</span>
+  </div>
+
+  <!-- Demo Banner (shown when in demo mode) -->
+  <div class="demo-banner" id="demoBanner" style="display:none">
+    ⚠️ <strong>Demo mode</strong> — not connected to your Google Sheet. Follow the Setup steps above: File → Share → Publish to web → paste the link → Connect.
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <div class="filter-item">
+      <div class="filter-label">Partner</div>
+      <select class="filter-input" id="fPartner" onchange="applyFilters()"><option value="">All Partners</option></select>
+    </div>
+    <div class="filter-item">
+      <div class="filter-label">Recharge</div>
+      <select class="filter-input" id="fRecharge" onchange="applyFilters()"><option value="">All</option></select>
+    </div>
+    <div class="filter-item">
+      <div class="filter-label">Netbox</div>
+      <select class="filter-input" id="fNetbox" onchange="applyFilters()"><option value="">All</option></select>
+    </div>
+    <div class="filter-item">
+      <div class="filter-label">Refund</div>
+      <select class="filter-input" id="fRefund" onchange="applyFilters()"><option value="">All</option></select>
+    </div>
+    <div class="filter-item">
+      <div class="filter-label">Call Status</div>
+      <select class="filter-input" id="fCall" onchange="applyFilters()"><option value="">All</option></select>
+    </div>
+    <div class="filter-item" style="align-self:flex-end">
+      <button class="btn" style="width:100%" onclick="clearFilters()">✕ Clear</button>
+    </div>
+  </div>
+
+  <!-- Filter Summary -->
+  <div id="filterSummary" style="display:none"></div>
+
+  <!-- Old Partner Bucket -->
+  <div id="oldPartnerBucket" style="margin-bottom:12px;"></div>
+
+  <!-- Appointment Buckets -->
+  <div class="appt-section">
+    <div class="section-hdr">
+      <div class="section-hdr-title">📅 Appointment Buckets</div>
+      <button class="clear-bucket-btn" id="clearBucketBtn" style="display:none"
+              onclick="clearBucketFilter()">✕ Clear Filter</button>
+    </div>
+    <div class="bucket-grid" id="bucketGrid"></div>
+  </div>
+
+  <!-- Day Summary -->
+  <div id="daySummary"></div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">⚡ Recharge Status</div>
+      <div class="chart-wrap"><canvas id="chartRecharge"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">📦 Netbox Picked</div>
+      <div class="chart-wrap"><canvas id="chartNetbox"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">💰 Refund Status</div>
+      <div class="chart-wrap"><canvas id="chartRefund"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">📞 Call Status</div>
+      <div class="chart-wrap"><canvas id="chartCall"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <h3>Customer Records</h3>
+      <span class="pill" id="rowCount">0 records</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead id="tHead"></thead>
+        <tbody id="tBody"></tbody>
+        <tfoot id="tFoot"></tfoot>
+      </table>
+      <div class="empty" id="emptyState" style="display:none">
+        <div class="empty-icon">🔍</div>
+        <h3>No records found</h3>
+        <p>Try adjusting filters, or connect to your Google Sheet via Setup above.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  Config
+// ════════════════════════════════════════════════════════════
+const DEFAULT_PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRkHgvDAdc2ZUn8lUAWiVZDVdA1ifyK860SXUYkoLCpjrA3m8UyClIBynu-vlO_h0BlXYLnEOdhpGih/pub?gid=0&single=true&output=csv';
+const CFG_VERSION = 4;
+const CFG_KEY = 'u2_cfg_v4'; // new key = ignores all old cached localStorage
+let cfg = {
+  publishedUrl: DEFAULT_PUBLISHED_URL,
+  scriptUrl: '',
+  apiKey: '', sheetId: '1a3-7ELS0nxScrFbFR45I9z_QbQdPnqbKIcbHmmujsO8',
+  sheetName: 'main sheet',
+  cols: { name:1, mobile:0, recharge:17, netbox:20, refund:22, call:16, planAmt:8, deviceAmt:9, totalAmt:10, apptDate:13, pickupDate:21, rechargeAmt:18, partner:3, oldPartner:26 }
+};
+
+(function restoreConfig() {
+  try {
+    const s = localStorage.getItem(CFG_KEY);
+    if (!s) return;
+    const saved = JSON.parse(s);
+    // Restore connection settings only — column mapping always uses hardcoded defaults
+    if (saved.publishedUrl) cfg.publishedUrl = saved.publishedUrl;
+    if (saved.scriptUrl)    cfg.scriptUrl    = saved.scriptUrl;
+    if (saved.apiKey)       cfg.apiKey       = saved.apiKey;
+    document.getElementById('inPublishedUrl').value = cfg.publishedUrl || '';
+    document.getElementById('inScriptUrl').value    = cfg.scriptUrl    || '';
+    document.getElementById('inApiKey').value       = cfg.apiKey       || '';
+  } catch(e) {}
+})();
+
+function saveConfig() {
+  cfg.publishedUrl = document.getElementById('inPublishedUrl').value.trim();
+  cfg.scriptUrl    = document.getElementById('inScriptUrl').value.trim();
+  cfg.apiKey       = document.getElementById('inApiKey').value.trim();
+  // Save only connection settings; cols are always hardcoded
+  localStorage.setItem(CFG_KEY, JSON.stringify({
+    publishedUrl: cfg.publishedUrl,
+    scriptUrl:    cfg.scriptUrl,
+    apiKey:       cfg.apiKey,
+    v:            CFG_VERSION
+  }));
+}
+
+// ════════════════════════════════════════════════════════════
+//  State
+// ════════════════════════════════════════════════════════════
+let allRows  = [], visRows = [];
+let sortKey  = null, sortDir = 1;
+let charts   = {};
+let refreshTimer;
+let activeBucket = null;
+
+// ════════════════════════════════════════════════════════════
+//  Data Fetching
+// ════════════════════════════════════════════════════════════
+async function loadData() {
+  saveConfig();
+  setStatus('yellow', 'Loading…');
+  showLoading(true);
+  try {
+    if (cfg.publishedUrl) {
+      await loadViaPublishedUrl();
+    } else if (cfg.scriptUrl) {
+      await loadViaScript();
+    } else if (cfg.apiKey) {
+      await loadViaAPI();
+    } else {
+      const rows = await loadViaGViz();
+      finishLoad(rows);
+    }
+  } catch(err) {
+    setStatus('red', `Error: ${err.message}`);
+    toast('❌ ' + err.message, 'error');
+    if (allRows.length === 0) useDemoData();
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  CSV File Import (drag & drop / browse)
+// ════════════════════════════════════════════════════════════
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.add('drag-over');
+}
+function handleDragLeave(e) {
+  document.getElementById('dropZone').classList.remove('drag-over');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readCSVFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) readCSVFile(file);
+}
+function readCSVFile(file) {
+  if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
+    toast('❌ Please select a CSV file (File → Download → CSV from Google Sheets)', 'error'); return;
+  }
+  showLoading(true);
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const rows = parseCSV(e.target.result);
+      if (rows.length < 2) { toast('❌ CSV file appears empty', 'error'); showLoading(false); return; }
+      finishLoad(rows);
+      document.getElementById('setupPanel').style.display = 'none';
+      setupVisible = false;
+      toast('✅ Data loaded from CSV — ' + (rows.length - 1) + ' records', 'success');
+    } catch(err) {
+      toast('❌ Could not read file: ' + err.message, 'error');
+    }
+    showLoading(false);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  // Proper parser: handles quoted fields that contain commas AND newlines
+  const rows = [];
+  let row = [], cell = '', inQ = false;
+  const t = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '"') {
+      if (inQ && t[i + 1] === '"') { cell += '"'; i++; } // escaped quote
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) {
+      row.push(cell.trim()); cell = '';
+    } else if (c === '\n' && !inQ) {
+      row.push(cell.trim()); cell = '';
+      if (row.some(x => x !== '')) rows.push(row);
+      row = [];
+    } else {
+      cell += c;
+    }
+  }
+  // last row
+  row.push(cell.trim());
+  if (row.some(x => x !== '')) rows.push(row);
+  return rows;
+}
+
+function loadViaGViz() {
+  // Uses JSONP (script tag injection) — works from local file://,
+  // no API key needed, no CORS issues, supports any tab name
+  return new Promise((resolve, reject) => {
+    const cbName     = 'u2cb_' + Date.now();
+    const sheetParam = cfg.sheetName ? `&sheet=${encodeURIComponent(cfg.sheetName)}` : '';
+    // responseHandler: is the correct JSONP format for GViz API
+    const url        = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=responseHandler:${cbName}${sheetParam}`;
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Request timed out — check your internet connection.'));
+    }, 15000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      const s = document.getElementById('_gviz_script');
+      if (s) s.remove();
+    }
+
+    window[cbName] = function(data) {
+      cleanup();
+      try {
+        if (data.status === 'error') {
+          const msg = data.errors?.[0]?.detailed_message || data.errors?.[0]?.message || 'Google Sheets returned an error.';
+          reject(new Error(msg)); return;
+        }
+        const table = data.table;
+        if (!table || !table.rows?.length) {
+          reject(new Error(`Sheet is empty or tab name "${cfg.sheetName}" is wrong — check the spelling in Setup.`)); return;
+        }
+        const headers = table.cols.map(c => c.label || c.id || '');
+        const rows = [
+          headers,
+          ...table.rows.map(row =>
+            (row.c || []).map(cell => {
+              if (!cell || cell.v === null || cell.v === undefined) return '';
+              // Convert Google Date(year,month,day) → DD/MM/YYYY
+              if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
+                const m = cell.v.match(/Date\((\d+),(\d+),(\d+)\)/);
+                if (m) {
+                  const d = new Date(+m[1], +m[2], +m[3]);
+                  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+                }
+              }
+              return (cell.f !== undefined && cell.f !== null) ? String(cell.f) : String(cell.v);
+            })
+          )
+        ];
+        resolve(rows);
+      } catch(e) { reject(e); }
+    };
+
+    const script  = document.createElement('script');
+    script.id     = '_gviz_script';
+    script.src    = url;
+    script.onerror = () => {
+      cleanup();
+      reject(new Error('Cannot reach Google Sheets — make sure the sheet is shared as "Anyone with the link → Viewer".'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+async function loadViaPublishedUrl() {
+  // Fetches the "Publish to web" CSV URL — works from localhost, no CORS issues
+  let url = cfg.publishedUrl;
+  // Auto-fix common mistakes: if user pasted /edit or /view URL, convert to /pub CSV
+  url = url.replace(/\/(edit|view|preview)(#.*)?$/, '/pub');
+  if (!url.includes('output=csv')) {
+    url += (url.includes('?') ? '&' : '?') + 'output=csv';
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Could not fetch sheet (HTTP ${res.status}). Make sure you clicked "Publish" in Google Sheets.`);
+  const text = await res.text();
+  if (!text.trim()) throw new Error('Published URL returned empty data. Check that the correct tab is published.');
+  const rows = parseCSV(text);
+  if (rows.length < 2) throw new Error('Sheet appears to be empty or has only a header row.');
+  finishLoad(rows);
+}
+
+async function loadViaScript() {
+  // Fetches from a Google Apps Script Web App — guaranteed CORS support
+  const res = await fetch(cfg.scriptUrl);
+  if (!res.ok) throw new Error(`Script returned HTTP ${res.status}. Re-deploy the Apps Script web app.`);
+  const data = await res.json();
+  if (data && data.error) throw new Error('Script error: ' + data.error);
+  if (!Array.isArray(data) || data.length < 2) throw new Error('Script returned no data. Check the tab name inside the script code.');
+  finishLoad(data);
+}
+
+async function loadViaAPI() {
+  const range = encodeURIComponent(cfg.sheetName);
+  const url   = `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${range}?key=${cfg.apiKey}`;
+  const res   = await fetch(url);
+  if (!res.ok) {
+    const j = await res.json().catch(()=>({}));
+    throw new Error(j.error?.message || `HTTP ${res.status} — check your API key and Sheet ID`);
+  }
+  const j    = await res.json();
+  const rows = j.values || [];
+  if (rows.length < 2) throw new Error('Sheet appears to be empty (no data rows).');
+  finishLoad(rows);
+}
+
+function finishLoad(rows) {
+  parseRows(rows);
+  document.getElementById('demoBanner').style.display = 'none';
+  setStatus('green', `Live data · ${allRows.length} records`);
+  document.getElementById('lastUpdated').textContent = `Last refreshed: ${new Date().toLocaleTimeString()}`;
+  toast('✅ Loaded ' + allRows.length + ' customer records', 'success');
+}
+
+function parseRows(rows) {
+  const c = cfg.cols;
+  allRows = rows.slice(1)
+    .filter(r => r.some(x => x && String(x).trim()))
+    .map((r, i) => ({
+      idx:      i + 1,
+      name:     val(r, c.name),
+      mobile:   val(r, c.mobile),
+      recharge: val(r, c.recharge),
+      netbox:   val(r, c.netbox),
+      refund:    val(r, c.refund),
+      call:      val(r, c.call),
+      planAmt:   val(r, c.planAmt),
+      deviceAmt: val(r, c.deviceAmt),
+      totalAmt:  val(r, c.totalAmt),
+      apptDate:    val(r, c.apptDate),
+      pickupDate:  val(r, c.pickupDate),
+      rechargeAmt: val(r, c.rechargeAmt),
+      partner:     val(r, c.partner),
+      oldPartner:  val(r, c.oldPartner),
+    }));
+  visRows = [...allRows];
+  renderAll();
+  populateFilterDropdowns();
+}
+
+function val(row, idx) {
+  return (row[idx] !== undefined && row[idx] !== null) ? String(row[idx]).trim() : '—';
+}
+
+// ════════════════════════════════════════════════════════════
+//  Demo Data
+// ════════════════════════════════════════════════════════════
+function useDemoData() {
+  const names    = ['Rahul Sharma','Priya Singh','Amit Kumar','Neha Gupta','Vikram Patel','Sunita Rao','Rajesh Verma','Kavita Nair','Deepak Mehta','Anita Joshi','Suresh Pillai','Meera Iyer','Arun Mishra','Pooja Pandey','Manish Tiwari','Rekha Jain','Kiran Shetty','Dinesh Reddy','Usha Yadav','Manoj Kapoor','Ravi Kumar','Sita Devi','Ramesh Babu','Lakshmi Devi','Gopal Krishna'];
+  const rOpts    = ['Done','Pending','Done','Done','Failed','Pending','Done','Done'];
+  const nOpts    = ['Yes','No','Yes','Pending','Yes','Not Picked','Yes'];
+  const refOpts  = ['Done','Pending','N/A','Done','Pending','Done'];
+  const callOpts = ['Connected','DNP','Connected','Callback','Not Attempted','DNP','Connected','Switched Off','Busy'];
+  const pick     = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  const planAmts   = [199, 299, 349, 399, 499, 599, 699, 799, 999];
+  const deviceAmts = [1500, 1800, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 6000];
+
+  // Appointment dates — spread across buckets
+  const mkDate = offset => {
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  };
+  const apptPool = [
+    mkDate(-4), mkDate(-2), mkDate(-1),          // overdue (3)
+    mkDate(0),  mkDate(0),  mkDate(0),  mkDate(0), mkDate(0), // today (5)
+    mkDate(1),  mkDate(1),  mkDate(1),  mkDate(1), // tomorrow (4)
+    mkDate(2),  mkDate(3),  mkDate(4),  mkDate(5), // this week (4)
+    mkDate(8),  mkDate(12), mkDate(18), mkDate(25), mkDate(30), // upcoming (5)
+    '', '', '', '', // no date (4)
+  ];
+
+  allRows = names.map((name, i) => {
+    const p = pick(planAmts);
+    const d = pick(deviceAmts);
+    return {
+      idx: i + 1, name,
+      mobile:    `9${Math.floor(Math.random()*9+1)}${String(Math.floor(Math.random()*1e8)).padStart(8,'0')}`,
+      recharge:  pick(rOpts),
+      netbox:    pick(nOpts),
+      refund:    pick(refOpts),
+      call:      pick(callOpts),
+      planAmt:   String(p),
+      deviceAmt: String(d),
+      totalAmt:  String(p + d),
+      apptDate:  apptPool[i % apptPool.length],
+    };
+  });
+  visRows = [...allRows];
+  renderAll();
+  populateFilterDropdowns();
+
+  document.getElementById('demoBanner').style.display = '';
+  setStatus('yellow', 'Demo mode — not connected to Google Sheets');
+  document.getElementById('lastUpdated').textContent = 'Demo data · add API key to load live data';
+  toast('ℹ️ Showing demo data — add API key in Setup', 'info');
+}
+
+// ════════════════════════════════════════════════════════════
+//  Render
+// ════════════════════════════════════════════════════════════
+function renderAll() {
+  renderOldPartnerBucket();
+  renderAppointments();
+  renderDaySummary();
+  renderKPIs();
+  renderCharts();
+  renderTable();
+}
+
+// — Day Summary —
+function renderDaySummary() {
+  const el = document.getElementById('daySummary');
+  if (!el) return;
+
+  // Build last 3 calendar days: [today, yesterday, day-2] — most recent first
+  const days = [0, 1, 2].map(offset => {
+    const d = new Date(); d.setDate(d.getDate() - offset); d.setHours(0,0,0,0);
+    return d;
+  });
+
+  const dayLabels = ['Today', 'Yesterday', '2 Days Ago'];
+
+  // For each day, aggregate rows where pickupDate matches
+  const dayData = days.map((day, i) => {
+    const rows = allRows.filter(r => {
+      const pd = parseDate(r.pickupDate);
+      if (!pd) return false;
+      pd.setHours(0,0,0,0);
+      return pd.getTime() === day.getTime();
+    });
+    return {
+      dateStr: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' }),
+      label:   dayLabels[i],
+      count:   rows.length,
+      deviceAmt: rows.reduce((s, r) => s + parseNum(r.deviceAmt), 0),
+      planAmt:   rows.reduce((s, r) => s + parseNum(r.planAmt),   0),
+      totalAmt:  rows.reduce((s, r) => s + parseNum(r.totalAmt),  0),
+    };
+  });
+
+  // Cumulative totals (last 3 days)
+  const cum = dayData.reduce((acc, d) => ({
+    count:     acc.count     + d.count,
+    deviceAmt: acc.deviceAmt + d.deviceAmt,
+    planAmt:   acc.planAmt   + d.planAmt,
+    totalAmt:  acc.totalAmt  + d.totalAmt,
+  }), { count: 0, deviceAmt: 0, planAmt: 0, totalAmt: 0 });
+
+  // FTD — Final Till Date: all rows that have a valid pickupDate
+  const ftd = allRows.reduce((acc, r) => {
+    if (!parseDate(r.pickupDate)) return acc;
+    return {
+      count:     acc.count     + 1,
+      deviceAmt: acc.deviceAmt + parseNum(r.deviceAmt),
+      planAmt:   acc.planAmt   + parseNum(r.planAmt),
+      totalAmt:  acc.totalAmt  + parseNum(r.totalAmt),
+    };
+  }, { count: 0, deviceAmt: 0, planAmt: 0, totalAmt: 0 });
+
+  const amtOrDash = n => n > 0 ? formatINR(n) : '<span style="color:var(--muted)">—</span>';
+
+  el.innerHTML = `
+    <div class="day-summary-card">
+      <div class="chart-title" style="margin-bottom:16px;">📊 Day-wise Activity — Last 3 Days &nbsp;<span style="color:var(--muted);font-weight:400;font-size:10px;text-transform:none;">grouped by Device Pickup Date</span></div>
+      <div class="day-table-wrap">
+        <table class="day-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Date</th>
+              <th>Devices Picked</th>
+              <th>Device Amount</th>
+              <th>Plan Refund</th>
+              <th>Total Paid to User</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dayData.map(d => `
+              <tr>
+                <td>
+                  <span class="day-label">${d.dateStr}</span>
+                  <span class="day-sublabel">${d.label}</span>
+                </td>
+                <td><span class="day-count ${d.count > 0 ? 'has-data' : ''}">${d.count}</span></td>
+                <td class="amt-cell">${amtOrDash(d.deviceAmt)}</td>
+                <td class="amt-cell">${amtOrDash(d.planAmt)}</td>
+                <td class="amt-cell">${amtOrDash(d.totalAmt)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr class="cum-row" style="background:rgba(217,0,141,.08); border-top: 2px solid var(--primary);">
+              <td style="text-align:left; color:#fff; text-transform:uppercase; font-size:12px; letter-spacing:.06em; font-weight:900;">FTD &nbsp;<span style="color:var(--muted);font-weight:400;font-size:10px;text-transform:none;">Final Till Date</span></td>
+              <td><span class="day-count has-data" style="color:#fff; font-size:26px;">${ftd.count}</span></td>
+              <td class="amt-cell" style="color:var(--orange); font-size:14px; font-weight:800;">${formatINR(ftd.deviceAmt)}</td>
+              <td class="amt-cell" style="color:var(--purple); font-size:14px; font-weight:800;">${formatINR(ftd.planAmt)}</td>
+              <td class="amt-cell" style="color:var(--primary-light); font-size:14px; font-weight:800;">${formatINR(ftd.totalAmt)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// — KPIs —
+function renderKPIs() {
+  const d   = visRows;
+  const tot = d.length;
+  // exact match to avoid 'Not Done'.includes('done') false positives
+  const exact = (field, ...words) =>
+    d.filter(r => words.some(w => r[field].toLowerCase() === w.toLowerCase())).length;
+
+  const rechDone  = exact('recharge','done','completed','recharged','success');
+  const netPicked = exact('netbox','yes','picked','collected','done','delivered');
+  const refDone   = exact('refund','yes','done','refunded','completed','processed');
+  const connected = exact('call','connected','answered');
+  const dnp       = exact('call','dnp','did not pick','no answer','not answered');
+  const pct = n => tot ? Math.round(n/tot*100)+'%' : '—';
+
+  const sumPlan   = d.reduce((s, r) => s + parseNum(r.planAmt),   0);
+  const sumDevice = d.reduce((s, r) => s + parseNum(r.deviceAmt), 0);
+  const sumTotal  = d.reduce((s, r) => s + parseNum(r.totalAmt),  0);
+
+  document.getElementById('kpiGrid').innerHTML = `
+    ${kpiCard('c-blue',   '👥', tot,                       'Total Customers',    '')}
+    ${kpiCard('c-green',  '⚡', rechDone,                  'Recharge Done',      pct(rechDone)+' complete')}
+    ${kpiCard('c-purple', '📦', netPicked,                 'Netbox Picked',      pct(netPicked)+' complete')}
+    ${kpiCard('c-yellow', '💰', refDone,                   'Refund Done',        pct(refDone)+' complete')}
+    ${kpiCard('c-teal',   '📞', connected,                 'Connected',          pct(connected)+' of total')}
+    ${kpiCard('c-red',    '📵', dnp,                       'DNP',                pct(dnp)+' of total')}
+    ${kpiCardAmt('c-purple', '🧾', sumPlan,   'Plan Refund Total')}
+    ${kpiCardAmt('c-orange', '📱', sumDevice, 'Device Amount')}
+    ${kpiCardAmt('c-cyan',   '💎', sumTotal,  'Total Amount')}
+  `;
+}
+function kpiCard(cls, icon, val, label, sub) {
+  return `<div class="kpi-card ${cls}">
+    <div class="kpi-icon">${icon}</div>
+    <div class="kpi-val">${val}</div>
+    <div class="kpi-label">${label}</div>
+    ${sub ? `<div class="kpi-pct">${sub}</div>` : ''}
+  </div>`;
+}
+function kpiCardAmt(cls, icon, amount, label) {
+  return `<div class="kpi-card ${cls}">
+    <div class="kpi-icon">${icon}</div>
+    <div class="kpi-val-amt">${formatINRShort(amount)}</div>
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-pct">${formatINR(amount)}</div>
+  </div>`;
+}
+
+// — Charts —
+const CHART_COLORS = {
+  bg: (col) => col + '33',
+  stroke: (col) => col,
+};
+const COLOR_MAP = {
+  // Done / success states
+  'done':'#10b981','completed':'#10b981','recharged':'#10b981','success':'#10b981',
+  'refunded':'#10b981','processed':'#10b981',
+  'yes':'#10b981','picked':'#10b981','collected':'#10b981','delivered':'#10b981',
+  'connected':'#10b981','answered':'#10b981',
+  // Pending / partial
+  'pending':'#f59e0b','in progress':'#f59e0b','processing':'#f59e0b',
+  'no':'#f59e0b','not picked':'#f59e0b',
+  'callback':'#f59e0b','call back':'#f59e0b','busy':'#f59e0b',
+  // Failed / negative
+  'failed':'#ef4444','error':'#ef4444','not done':'#ef4444',
+  'dnp':'#ef4444','did not pick':'#ef4444','no answer':'#ef4444','not answered':'#ef4444',
+  // N/A / neutral
+  'n/a':'#94a3b8','na':'#94a3b8','not applicable':'#94a3b8',
+  // Other call statuses
+  'not attempted':'#6366f1','not called':'#6366f1',
+  'switched off':'#8b5cf6','invalid':'#8b5cf6','wrong number':'#8b5cf6','out of reach':'#8b5cf6',
+};
+
+function getColor(label) {
+  return COLOR_MAP[label.toLowerCase()] || '#8b949e';
+}
+
+function renderCharts() {
+  [
+    { id: 'chartRecharge', field: 'recharge' },
+    { id: 'chartNetbox',   field: 'netbox'   },
+    { id: 'chartRefund',   field: 'refund'   },
+    { id: 'chartCall',     field: 'call'     },
+  ].forEach(({ id, field }) => {
+    const counts = {};
+    visRows.forEach(r => {
+      const v = r[field] || 'Unknown';
+      counts[v] = (counts[v] || 0) + 1;
+    });
+
+    const rawLabels = Object.keys(counts);
+    const data      = Object.values(counts);
+    const total     = data.reduce((a, b) => a + b, 0);
+    const colors    = rawLabels.map(l => getColor(l));
+    const bgColors  = colors.map(c => c + '44');
+    // Embed count + % directly into legend label
+    const labels    = rawLabels.map((l, i) => `${l}: ${data[i]} (${total ? Math.round(data[i]/total*100) : 0}%)`);
+
+    if (charts[id]) charts[id].destroy();
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+
+    charts[id] = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data, backgroundColor: bgColors, borderColor: colors, borderWidth: 2 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '58%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#b08ab0', font: { size: 11 }, padding: 10, boxWidth: 12, boxHeight: 12 }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${rawLabels[ctx.dataIndex]}: ${ctx.raw} (${total ? Math.round(ctx.raw/total*100) : 0}%)`
+            }
+          }
+        }
+      }
+    });
+  });
+}
+
+// — Table —
+function renderTable() {
+  const empty = document.getElementById('emptyState');
+  const body  = document.getElementById('tBody');
+  const head  = document.getElementById('tHead');
+  document.getElementById('rowCount').textContent = visRows.length + ' records';
+
+  const cols = [
+    { key: 'mobile',      label: 'Mobile'           },
+    { key: 'apptDate',    label: 'Appointment'      },
+    { key: 'rechargeAmt', label: 'Recharge Amt'     },
+    { key: 'netbox',      label: 'Netbox Picked'    },
+    { key: 'refund',      label: 'Refund'           },
+    { key: 'call',        label: 'Call Status'      },
+    { key: 'planAmt',     label: 'Plan Refund Amt'  },
+    { key: 'deviceAmt',   label: 'Device Amount'    },
+    { key: 'totalAmt',    label: 'Total Amount'     },
+  ];
+
+  head.innerHTML = `<tr>
+    <th>#</th>
+    ${cols.map(c => `
+      <th onclick="sortTable('${c.key}')" class="${sortKey===c.key?'sorted':''}">
+        ${c.label} ${sortKey===c.key ? (sortDir>0?'↑':'↓') : ''}
+      </th>`).join('')}
+  </tr>`;
+
+  if (visRows.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const sumR = visRows.reduce((s, r) => s + parseNum(r.rechargeAmt), 0);
+  const sumP = visRows.reduce((s, r) => s + parseNum(r.planAmt),     0);
+  const sumD = visRows.reduce((s, r) => s + parseNum(r.deviceAmt),   0);
+  const sumT = visRows.reduce((s, r) => s + parseNum(r.totalAmt),    0);
+
+  body.innerHTML = visRows.map(r => `
+    <tr>
+      <td class="row-idx">${r.idx}</td>
+      <td class="mobile-cell">${esc(r.mobile)}</td>
+      <td>${apptBadge(r.apptDate)}</td>
+      <td class="amt-cell">${amtCell(r.rechargeAmt)}</td>
+      <td>${badge(r.netbox,  'netbox')}</td>
+      <td>${badge(r.refund,  'refund')}</td>
+      <td>${badge(r.call,    'call')}</td>
+      <td class="amt-cell">${amtCell(r.planAmt)}</td>
+      <td class="amt-cell">${amtCell(r.deviceAmt)}</td>
+      <td class="amt-cell">${amtCell(r.totalAmt)}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('tFoot').innerHTML = visRows.length > 0 ? `
+    <tr class="tfoot-row">
+      <td colspan="3" style="padding:10px 16px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em;">
+        Totals &nbsp;·&nbsp; ${visRows.length} records
+      </td>
+      <td class="amt-cell" style="padding:10px 16px; color:var(--teal);">${formatINR(sumR)}</td>
+      <td colspan="2"></td>
+      <td class="amt-cell" style="padding:10px 16px; color:var(--primary-light);">${formatINR(sumP)}</td>
+      <td class="amt-cell" style="padding:10px 16px; color:var(--orange);">${formatINR(sumD)}</td>
+      <td class="amt-cell" style="padding:10px 16px; color:var(--primary);">${formatINR(sumT)}</td>
+    </tr>
+  ` : '';
+}
+
+function badge(val, type) {
+  const cls = badgeClass(val, type);
+  return `<span class="badge ${cls}"><span class="dot-sm"></span>${esc(val)}</span>`;
+}
+
+function badgeClass(val, type) {
+  if (!val || val === '—') return 'bg-gray';
+  const v = val.toLowerCase();
+  if (type === 'recharge') {
+    if (['done','completed','recharged','success'].includes(v))   return 'bg-green';
+    if (['pending','in progress','processing'].includes(v))        return 'bg-yellow';
+    if (['failed','error','not done','dont call here'].includes(v)) return 'bg-red';
+    return 'bg-blue';
+  }
+  if (type === 'netbox') {
+    if (['yes','picked','collected','done','delivered'].includes(v)) return 'bg-green';
+    if (['no','not picked','pending'].includes(v))                    return 'bg-yellow';
+    if (['not delivered','failed','rejected'].includes(v))           return 'bg-red';
+    return 'bg-blue';
+  }
+  if (type === 'refund') {
+    if (['yes','done','refunded','completed','processed'].includes(v)) return 'bg-green';
+    if (['no','pending','in process','processing'].includes(v))        return 'bg-yellow';
+    if (['na','n/a','not applicable'].includes(v))                     return 'bg-gray';
+    if (['failed','rejected'].includes(v))                             return 'bg-red';
+    return 'bg-blue';
+  }
+  if (type === 'call') {
+    if (['connected','answered'].includes(v))                              return 'bg-green';
+    if (['dnp','did not pick','no answer','not answered'].includes(v))     return 'bg-red';
+    if (['callback','call back','busy'].includes(v))                       return 'bg-yellow';
+    if (['not attempted','pending','not called'].includes(v))              return 'bg-blue';
+    if (['switched off','invalid','wrong number','out of reach'].includes(v)) return 'bg-orange';
+    return 'bg-gray';
+  }
+  return 'bg-gray';
+}
+
+// ════════════════════════════════════════════════════════════
+//  Appointment Helpers
+// ════════════════════════════════════════════════════════════
+function parseDate(str) {
+  if (!str || str === '—') return null;
+  str = str.trim();
+  // ISO: YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const d = new Date(str + 'T00:00:00');
+    return isNaN(d) ? null : d;
+  }
+  // Handles M/D/YYYY (sheet default) and DD/M/YYYY (when first number > 12)
+  const m = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (m) {
+    const a = +m[1], b = +m[2], yr = +m[3];
+    // If first number > 12 it must be the day (DD/M/YYYY e.g. 21/2/2026)
+    // Otherwise treat as M/D/YYYY (e.g. 2/18/2026, 3/1/2026)
+    const mon = a > 12 ? b : a;
+    const day = a > 12 ? a : b;
+    const d = new Date(yr, mon - 1, day);
+    return isNaN(d) ? null : d;
+  }
+  // Fallback native parse
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function today0() {
+  const t = new Date(); t.setHours(0,0,0,0); return t;
+}
+
+function getApptBucket(dateStr, refundStatus) {
+  const d = parseDate(dateStr);
+  if (!d) return 'none';
+  d.setHours(0,0,0,0);
+  const t  = today0();
+  const t1 = new Date(t); t1.setDate(t1.getDate() + 1);
+  const t7 = new Date(t); t7.setDate(t7.getDate() + 7);
+  if (d < t) {
+    // Only overdue if refund is NOT yet done
+    const rDone = refundStatus && ['yes','done','refunded','completed','processed'].includes(refundStatus.toLowerCase());
+    return rDone ? 'none' : 'overdue';
+  }
+  if (d.getTime() === t.getTime())  return 'today';
+  if (d.getTime() === t1.getTime()) return 'tomorrow';
+  if (d <  t7) return 'week';
+  return 'upcoming';
+}
+
+function apptBadge(dateStr) {
+  const d = parseDate(dateStr);
+  if (!d) return '<span style="color:var(--muted);font-size:12px">—</span>';
+  const bucket  = getApptBucket(dateStr, '');
+  const dayStr  = d.toLocaleDateString('en-IN', { day:'2-digit', month:'short' });
+  const labels  = {
+    overdue:  `⚠ Overdue · ${dayStr}`,
+    today:    `● Today · ${dayStr}`,
+    tomorrow: `◎ Tomorrow · ${dayStr}`,
+    week:     dayStr,
+    upcoming: dayStr,
+  };
+  return `<span class="appt-badge appt-${bucket}">${labels[bucket] || dayStr}</span>`;
+}
+
+// — Old Partner Bucket —
+function renderOldPartnerBucket() {
+  const el = document.getElementById('oldPartnerBucket');
+  if (!el) return;
+
+  // Rows where col AA (oldPartner) is filled (partner installed own device)
+  const opRows = allRows.filter(r => r.oldPartner && r.oldPartner !== '—' && r.oldPartner.trim() !== '');
+  const total  = opRows.length;
+
+  // Picked today (pickupDate = today)
+  const t0 = today0();
+  const pickedToday = opRows.filter(r => {
+    const pd = parseDate(r.pickupDate);
+    if (!pd) return false;
+    pd.setHours(0,0,0,0);
+    return pd.getTime() === t0.getTime();
+  }).length;
+
+  // Fixed ₹2000 per device
+  const totalAmt = total * 2000;
+
+  el.innerHTML = `
+    <div class="old-partner-bucket">
+      <div class="old-partner-icon">🚨</div>
+      <div class="old-partner-count">${total}</div>
+      <div class="old-partner-info">
+        <div class="old-partner-label">Device Already Picked Up By Partner</div>
+      </div>
+      <div class="old-partner-divider"></div>
+      <div class="old-partner-stat">
+        <div class="old-partner-stat-val">${pickedToday}</div>
+        <div class="old-partner-stat-lbl">Picked Today</div>
+      </div>
+      <div class="old-partner-divider"></div>
+      <div class="old-partner-stat">
+        <div class="old-partner-stat-val" style="font-size:14px;">${totalAmt > 0 ? formatINRShort(totalAmt) : '—'}</div>
+        <div class="old-partner-stat-lbl">Device Amt</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAppointments() {
+  const buckets = {
+    overdue:  { label: 'Overdue',    icon: '⚠️', count: 0, sub: 'Past due' },
+    today:    { label: 'Today',      icon: '📅', count: 0, sub: new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short'}), extra: '' },
+    tomorrow: { label: 'Tomorrow',   icon: '📆', count: 0, sub: (() => { const d=new Date(); d.setDate(d.getDate()+1); return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}); })() },
+    week:     { label: 'This Week',  icon: '🗓️', count: 0, sub: 'Next 7 days' },
+    upcoming: { label: 'Upcoming',   icon: '🔮', count: 0, sub: 'Beyond 7 days' },
+    none:     { label: 'Appt. Pending', icon: '⏳',  count: 0, sub: 'Not scheduled' },
+  };
+
+  // Count from all rows (not filtered) so totals are stable
+  allRows.forEach(r => { buckets[getApptBucket(r.apptDate, r.refund)].count++; });
+  // Count netbox picked today split by appointment source
+  const t0 = today0();
+  const pickedFromToday = allRows.filter(r => {
+    const pd = parseDate(r.pickupDate);
+    if (!pd) return false;
+    pd.setHours(0,0,0,0);
+    if (pd.getTime() !== t0.getTime()) return false;
+    // appointment was also today
+    return getApptBucket(r.apptDate, r.refund) === 'today';
+  }).length;
+  const pickedFromPrev = allRows.filter(r => {
+    const pd = parseDate(r.pickupDate);
+    if (!pd) return false;
+    pd.setHours(0,0,0,0);
+    if (pd.getTime() !== t0.getTime()) return false;
+    // appointment was NOT today (previous)
+    return getApptBucket(r.apptDate, r.refund) !== 'today';
+  }).length;
+  const totalPickedToday = pickedFromToday + pickedFromPrev;
+  buckets.today.extra = totalPickedToday > 0
+    ? `📦 ${pickedFromToday} today's appt | ${pickedFromPrev} prev appt`
+    : '';
+
+  document.getElementById('bucketGrid').innerHTML = Object.entries(buckets).map(([key, b]) => `
+    <div class="bucket-card bucket-${key} ${activeBucket === key ? 'active' : ''}"
+         onclick="filterByBucket('${key}')">
+      <div class="bucket-icon">${b.icon}</div>
+      <div class="bucket-count">${b.count}</div>
+      <div class="bucket-label">${b.label}</div>
+      <div class="bucket-sub">${b.sub}</div>
+      ${b.extra ? `<div class="bucket-sub" style="color:var(--teal);margin-top:4px;font-weight:600;">${b.extra}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+//  Amount Helpers
+// ════════════════════════════════════════════════════════════
+function parseNum(str) {
+  if (!str || str === '—') return 0;
+  const n = parseFloat(String(str).replace(/[₹,\s]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function formatINR(n) {
+  if (!n) return '₹0';
+  n = Math.round(n);
+  const s    = String(n);
+  if (s.length <= 3) return '₹' + s;
+  const last3 = s.slice(-3);
+  const rest   = s.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  return '₹' + rest + ',' + last3;
+}
+
+function formatINRShort(n) {
+  if (!n) return '₹0';
+  if (n >= 10000000) return '₹' + (n / 10000000).toFixed(2) + ' Cr';
+  if (n >= 100000)   return '₹' + (n / 100000).toFixed(2)   + ' L';
+  if (n >= 1000)     return '₹' + (n / 1000).toFixed(1)     + 'K';
+  return '₹' + Math.round(n);
+}
+
+function amtCell(val) {
+  const n = parseNum(val);
+  if (n === 0 && (!val || val === '—' || val === '0' || val === '')) {
+    return '<span style="color:var(--muted)">—</span>';
+  }
+  return formatINR(n);
+}
+
+// ════════════════════════════════════════════════════════════
+//  Filters
+// ════════════════════════════════════════════════════════════
+function populateFilterDropdowns() {
+  const fields = { recharge:'fRecharge', netbox:'fNetbox', refund:'fRefund', call:'fCall', partner:'fPartner' };
+  Object.entries(fields).forEach(([field, elId]) => {
+    const unique = [...new Set(allRows.map(r => r[field]).filter(v => v && v !== '—'))].sort();
+    const el  = document.getElementById(elId);
+    const cur = el.value;
+    el.innerHTML = '<option value="">All</option>' +
+      unique.map(v => `<option value="${esc(v)}"${v===cur?' selected':''}>${esc(v)}</option>`).join('');
+  });
+}
+
+function renderFilterSummary() {
+  const el = document.getElementById('filterSummary');
+  if (!el) return;
+
+  // Check if any filter is active
+  const fR  = document.getElementById('fRecharge')?.value;
+  const fN  = document.getElementById('fNetbox')?.value;
+  const fRe = document.getElementById('fRefund')?.value;
+  const fC  = document.getElementById('fCall')?.value;
+  const fP  = document.getElementById('fPartner')?.value;
+  const anyActive = fR || fN || fRe || fC || fP || activeBucket;
+
+  if (!anyActive || visRows.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = '';
+
+  const d   = visRows;
+  const tot = d.length;
+  const exact = (field, ...words) =>
+    d.filter(r => words.some(w => r[field].toLowerCase() === w.toLowerCase())).length;
+
+  const rechDone  = exact('recharge','done','completed','recharged','success');
+  const netPicked = exact('netbox','yes','picked','collected','done','delivered');
+  const refDone   = exact('refund','yes','done','refunded','completed','processed');
+  const connected = exact('call','connected','answered');
+  const dnp       = exact('call','dnp','did not pick','no answer','not answered');
+  const sumP      = d.reduce((s, r) => s + parseNum(r.planAmt),   0);
+  const sumD      = d.reduce((s, r) => s + parseNum(r.deviceAmt), 0);
+  const sumT      = d.reduce((s, r) => s + parseNum(r.totalAmt),  0);
+
+  // Build active filter label
+  const activeFilters = [
+    fP  ? `Partner: ${fP}`   : '',
+    fR  ? `Recharge: ${fR}`  : '',
+    fN  ? `Netbox: ${fN}`    : '',
+    fRe ? `Refund: ${fRe}`   : '',
+    fC  ? `Call: ${fC}`      : '',
+    activeBucket ? `Bucket: ${activeBucket}` : '',
+  ].filter(Boolean).join(' · ');
+
+  el.innerHTML = `
+    <div class="filter-summary">
+      <span class="fs-label">📊 ${activeFilters}</span>
+      <div class="fs-divider"></div>
+      <span class="fs-chip total"><span class="fs-val">${tot}</span> Records</span>
+      <span class="fs-chip green"><span class="fs-val">${rechDone}</span> Recharge Done</span>
+      <span class="fs-chip cyan"><span class="fs-val">${netPicked}</span> Device Picked</span>
+      <span class="fs-chip yellow"><span class="fs-val">${refDone}</span> Refund Done</span>
+      <span class="fs-chip green"><span class="fs-val">${connected}</span> Connected</span>
+      <span class="fs-chip red"><span class="fs-val">${dnp}</span> DNP</span>
+      <div class="fs-divider"></div>
+      <span class="fs-chip purple"><span class="fs-val">${formatINRShort(sumP)}</span> Plan Refund</span>
+      <span class="fs-chip orange"><span class="fs-val">${formatINRShort(sumD)}</span> Device Amt</span>
+      <span class="fs-chip total"><span class="fs-val">${formatINRShort(sumT)}</span> Total Paid</span>
+    </div>
+  `;
+}
+
+function applyFilters() {
+  const fR  = document.getElementById('fRecharge').value;
+  const fN  = document.getElementById('fNetbox').value;
+  const fRe = document.getElementById('fRefund').value;
+  const fC  = document.getElementById('fCall').value;
+  const fP  = document.getElementById('fPartner').value;
+
+  visRows = allRows.filter(r => {
+    if (fR  && r.recharge !== fR)  return false;
+    if (fN  && r.netbox   !== fN)  return false;
+    if (fRe && r.refund   !== fRe) return false;
+    if (fC  && r.call     !== fC)  return false;
+    if (fP  && r.partner  !== fP)  return false;
+    if (activeBucket && getApptBucket(r.apptDate, r.refund) !== activeBucket) return false;
+    return true;
+  });
+
+  renderAll();
+  renderFilterSummary();
+}
+
+function clearFilters() {
+  ['fRecharge','fNetbox','fRefund','fCall','fPartner'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  activeBucket = null;
+  document.getElementById('clearBucketBtn').style.display = 'none';
+  visRows = [...allRows];
+  renderAll();
+  renderFilterSummary();
+}
+
+function filterByBucket(bucket) {
+  activeBucket = (activeBucket === bucket) ? null : bucket;
+  document.getElementById('clearBucketBtn').style.display = activeBucket ? '' : 'none';
+  applyFilters();
+  renderFilterSummary();
+}
+
+function clearBucketFilter() {
+  activeBucket = null;
+  document.getElementById('clearBucketBtn').style.display = 'none';
+  applyFilters();
+  renderFilterSummary();
+}
+
+// ════════════════════════════════════════════════════════════
+//  Sorting
+// ════════════════════════════════════════════════════════════
+function sortTable(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = 1; }
+  const amtKeys  = ['planAmt', 'deviceAmt', 'totalAmt', 'rechargeAmt'];
+  const dateKeys = ['apptDate'];
+  if (amtKeys.includes(key)) {
+    visRows.sort((a, b) => (parseNum(a[key]) - parseNum(b[key])) * sortDir);
+  } else if (dateKeys.includes(key)) {
+    visRows.sort((a, b) => {
+      const da = parseDate(a[key]), db = parseDate(b[key]);
+      const ta = da ? da.getTime() : (sortDir > 0 ? Infinity : -Infinity);
+      const tb = db ? db.getTime() : (sortDir > 0 ? Infinity : -Infinity);
+      return (ta - tb) * sortDir;
+    });
+  } else {
+    visRows.sort((a, b) => {
+      const va = (a[key] || '').toLowerCase();
+      const vb = (b[key] || '').toLowerCase();
+      return va < vb ? -sortDir : va > vb ? sortDir : 0;
+    });
+  }
+  renderTable();
+}
+
+// ════════════════════════════════════════════════════════════
+//  UI Helpers
+// ════════════════════════════════════════════════════════════
+function setStatus(color, text) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'dot dot-' + color;
+  document.getElementById('statusText').textContent = text;
+}
+
+function showLoading(show) {
+  document.getElementById('overlay').classList.toggle('show', show);
+}
+
+let toastTimer;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  el.textContent = msg;
+  el.className   = `toast toast-${type} show`;
+  toastTimer = setTimeout(() => el.classList.remove('show'), 4500);
+}
+
+function testSheetURL() {
+  saveConfig();
+  const sheetParam = cfg.sheetName ? `&sheet=${encodeURIComponent(cfg.sheetName)}` : '';
+  const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json${sheetParam}`;
+  window.open(url, '_blank');
+  toast('🔍 Opened test URL in new tab — if you see JSON data, click Connect & Load. If you see a login page, the sheet is still private.', 'info');
+}
+
+let setupVisible = true;
+function toggleSetup() {
+  setupVisible = !setupVisible;
+  document.getElementById('setupPanel').style.display = setupVisible ? '' : 'none';
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════════════════════
+//  Auto Refresh
+// ════════════════════════════════════════════════════════════
+function startAutoRefresh() {
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    if (cfg.publishedUrl || cfg.scriptUrl || cfg.apiKey) loadData();
+  }, 5 * 60 * 1000); // every 5 minutes
+}
+
+// ════════════════════════════════════════════════════════════
+//  Init
+// ════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  // New key u2_cfg_v4 is used — old keys are simply ignored automatically
+  loadData();
+  startAutoRefresh();
+  // Hide setup panel after first load if already connected
+  if (cfg.publishedUrl || cfg.scriptUrl || cfg.apiKey) {
+    setTimeout(() => { setupVisible = false; document.getElementById('setupPanel').style.display = 'none'; }, 500);
+  }
+});
+</script>
+</body>
+</html>
