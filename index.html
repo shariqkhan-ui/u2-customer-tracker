@@ -676,7 +676,10 @@
   <div class="table-card">
     <div class="table-toolbar">
       <h3>Customer Records</h3>
-      <span class="pill" id="rowCount">0 records</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="pill" id="rowCount">0 records</span>
+        <button class="btn btn-primary" onclick="downloadCSV()" style="font-size:12px;padding:6px 12px;">⬇ Download CSV</button>
+      </div>
     </div>
     <div class="tbl-wrap">
       <table>
@@ -1066,7 +1069,7 @@ function renderDaySummary() {
 
   // For each day, aggregate rows where pickupDate matches
   const dayData = days.map((day, i) => {
-    const rows = allRows.filter(r => {
+    const rows = visRows.filter(r => {
       const pd = parseDate(r.pickupDate);
       if (!pd) return false;
       pd.setHours(0,0,0,0);
@@ -1090,8 +1093,8 @@ function renderDaySummary() {
     totalAmt:  acc.totalAmt  + d.totalAmt,
   }), { count: 0, deviceAmt: 0, planAmt: 0, totalAmt: 0 });
 
-  // FTD — Final Till Date: all rows that have a valid pickupDate
-  const ftd = allRows.reduce((acc, r) => {
+  // FTD — Final Till Date: all visible rows that have a valid pickupDate
+  const ftd = visRows.reduce((acc, r) => {
     if (!parseDate(r.pickupDate)) return acc;
     return {
       count:     acc.count     + 1,
@@ -1134,7 +1137,7 @@ function renderDaySummary() {
           <tfoot>
             <tr class="cum-row" style="background:rgba(217,0,141,.08); border-top: 2px solid var(--primary);">
               <td style="text-align:left; color:#fff; text-transform:uppercase; font-size:12px; letter-spacing:.06em; font-weight:900;">FTD &nbsp;<span style="color:var(--muted);font-weight:400;font-size:10px;text-transform:none;">Final Till Date</span></td>
-              <td><span class="day-count has-data" style="color:#fff; font-size:26px;">${ftd.count}</span></td>
+              <td><span class="day-count has-data" style="color:#fff; font-size:22px;">${ftd.count}</span></td>
               <td class="amt-cell" style="color:var(--orange); font-size:14px; font-weight:800;">${formatINR(ftd.deviceAmt)}</td>
               <td class="amt-cell" style="color:var(--purple); font-size:14px; font-weight:800;">${formatINR(ftd.planAmt)}</td>
               <td class="amt-cell" style="color:var(--primary-light); font-size:14px; font-weight:800;">${formatINR(ftd.totalAmt)}</td>
@@ -1271,6 +1274,26 @@ function renderCharts() {
       }
     });
   });
+}
+
+// — Download CSV —
+function downloadCSV() {
+  const headers = ['#','Mobile','Appointment','Recharge Amt','Netbox Picked','Refund','Call Status','Plan Refund Amt','Device Amount','Total Amount','Partner','Pickup Date'];
+  const escape  = v => `"${String(v).replace(/"/g, '""')}"`;
+  const rows    = visRows.map(r => [
+    r.idx, r.mobile, r.apptDate, r.rechargeAmt, r.netbox,
+    r.refund, r.call, r.planAmt, r.deviceAmt, r.totalAmt,
+    r.partner, r.pickupDate
+  ].map(escape).join(','));
+
+  const csv  = [headers.map(escape).join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `U2_Customers_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // — Table —
@@ -1449,13 +1472,14 @@ function renderOldPartnerBucket() {
   if (!el) return;
 
   // Rows where col AA (oldPartner) is filled (partner installed own device)
-  const opRows = allRows.filter(r => r.oldPartner && r.oldPartner !== '—' && r.oldPartner.trim() !== '');
+  const opRows = visRows.filter(r => r.oldPartner && r.oldPartner !== '—' && r.oldPartner.trim() !== '');
   const total  = opRows.length;
 
-  // Picked today (pickupDate = today)
+  // Picked today — check pickupDate first, fall back to apptDate if pickupDate is blank
   const t0 = today0();
   const pickedToday = opRows.filter(r => {
-    const pd = parseDate(r.pickupDate);
+    const dateStr = (r.pickupDate && r.pickupDate !== '—') ? r.pickupDate : r.apptDate;
+    const pd = parseDate(dateStr);
     if (!pd) return false;
     pd.setHours(0,0,0,0);
     return pd.getTime() === t0.getTime();
@@ -1495,11 +1519,11 @@ function renderAppointments() {
     none:     { label: 'Appt. Pending', icon: '⏳',  count: 0, sub: 'Not scheduled' },
   };
 
-  // Count from all rows (not filtered) so totals are stable
-  allRows.forEach(r => { buckets[getApptBucket(r.apptDate, r.refund)].count++; });
+  // Count from visible (filtered) rows
+  visRows.forEach(r => { buckets[getApptBucket(r.apptDate, r.refund)].count++; });
   // Count netbox picked today split by appointment source
   const t0 = today0();
-  const pickedFromToday = allRows.filter(r => {
+  const pickedFromToday = visRows.filter(r => {
     const pd = parseDate(r.pickupDate);
     if (!pd) return false;
     pd.setHours(0,0,0,0);
@@ -1507,7 +1531,7 @@ function renderAppointments() {
     // appointment was also today
     return getApptBucket(r.apptDate, r.refund) === 'today';
   }).length;
-  const pickedFromPrev = allRows.filter(r => {
+  const pickedFromPrev = visRows.filter(r => {
     const pd = parseDate(r.pickupDate);
     if (!pd) return false;
     pd.setHours(0,0,0,0);
