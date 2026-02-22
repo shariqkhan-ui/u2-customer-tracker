@@ -468,7 +468,7 @@
 </div>
 
 <!-- Setup / Config Panel -->
-<div id="setupPanel">
+<div id="setupPanel" style="display:none">
 
   <!-- PRIMARY: Publish to web -->
   <div class="setup-instructions" style="margin-bottom:16px;">
@@ -1765,7 +1765,7 @@ function testSheetURL() {
   toast('🔍 Opened test URL in new tab — if you see JSON data, click Connect & Load. If you see a login page, the sheet is still private.', 'info');
 }
 
-let setupVisible = true;
+let setupVisible = false;
 function toggleSetup() {
   setupVisible = !setupVisible;
   document.getElementById('setupPanel').style.display = setupVisible ? '' : 'none';
@@ -1797,10 +1797,6 @@ window.addEventListener('DOMContentLoaded', () => {
   // New key u2_cfg_v4 is used — old keys are simply ignored automatically
   loadData();
   startAutoRefresh();
-  // Hide setup panel after first load if already connected
-  if (cfg.publishedUrl || cfg.scriptUrl || cfg.apiKey) {
-    setTimeout(() => { setupVisible = false; document.getElementById('setupPanel').style.display = 'none'; }, 500);
-  }
 });
 </script>
 </body>
