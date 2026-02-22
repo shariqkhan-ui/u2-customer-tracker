@@ -1475,14 +1475,17 @@ function renderOldPartnerBucket() {
   const opRows = visRows.filter(r => r.oldPartner && r.oldPartner !== '—' && r.oldPartner.trim() !== '');
   const total  = opRows.length;
 
-  // Picked today — check pickupDate first, fall back to apptDate if pickupDate is blank
+  // Picked today — try oldPartner value as date, then pickupDate, then apptDate
   const t0 = today0();
   const pickedToday = opRows.filter(r => {
-    const dateStr = (r.pickupDate && r.pickupDate !== '—') ? r.pickupDate : r.apptDate;
-    const pd = parseDate(dateStr);
-    if (!pd) return false;
-    pd.setHours(0,0,0,0);
-    return pd.getTime() === t0.getTime();
+    const candidates = [r.oldPartner, r.pickupDate, r.apptDate];
+    return candidates.some(str => {
+      if (!str || str === '—') return false;
+      const pd = parseDate(str);
+      if (!pd) return false;
+      pd.setHours(0,0,0,0);
+      return pd.getTime() === t0.getTime();
+    });
   }).length;
 
   // Fixed ₹2000 per device
