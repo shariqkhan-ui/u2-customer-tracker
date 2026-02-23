@@ -1067,25 +1067,16 @@ function renderDaySummary() {
 
   const dayLabels = ['Today', 'Yesterday', '2 Days Ago'];
 
-  // For each day, aggregate rows where device was picked on that day.
-  // Match by: pickupDate or oldPartner col AA date, OR apptDate when netbox=Yes and pickupDate is blank.
-  const rowMatchesDay = (r, day) => {
-    // Try explicit pickup date first (pickupDate or col AA)
-    const epd = effectivePickupDate(r);
-    if (epd) {
-      const pd = parseDate(epd);
-      if (pd) { pd.setHours(0,0,0,0); if (pd.getTime() === day.getTime()) return true; }
-    }
-    // Fallback: apptDate matches AND device picked = Yes
-    const netboxYes = ['yes','picked','collected','done','delivered'].includes((r.netbox || '').toLowerCase());
-    if (netboxYes) {
-      const ad = parseDate(r.apptDate);
-      if (ad) { ad.setHours(0,0,0,0); if (ad.getTime() === day.getTime()) return true; }
-    }
-    return false;
-  };
+  // For each day, count rows where pickupDate (or col AA for old-partner rows) matches that day
   const dayData = days.map((day, i) => {
-    const rows = visRows.filter(r => rowMatchesDay(r, day));
+    const rows = visRows.filter(r => {
+      const epd = effectivePickupDate(r);
+      if (!epd) return false;
+      const pd = parseDate(epd);
+      if (!pd) return false;
+      pd.setHours(0,0,0,0);
+      return pd.getTime() === day.getTime();
+    });
     return {
       dateStr: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' }),
       label:   dayLabels[i],
@@ -1104,11 +1095,9 @@ function renderDaySummary() {
     totalAmt:  acc.totalAmt  + d.totalAmt,
   }), { count: 0, deviceAmt: 0, planAmt: 0, totalAmt: 0 });
 
-  // FTD — Final Till Date: all visible rows where device was picked (any day)
-  const netboxYesFTD = r => ['yes','picked','collected','done','delivered'].includes((r.netbox || '').toLowerCase());
+  // FTD — Final Till Date: all visible rows with a valid pickupDate or col AA date
   const ftd = visRows.reduce((acc, r) => {
-    const hasPickupDate = !!parseDate(effectivePickupDate(r));
-    if (!hasPickupDate && !netboxYesFTD(r)) return acc;
+    if (!parseDate(effectivePickupDate(r))) return acc;
     return {
       count:     acc.count     + 1,
       deviceAmt: acc.deviceAmt + parseNum(r.deviceAmt),
@@ -1537,10 +1526,14 @@ function renderAppointments() {
 
   // Count from visible (filtered) rows
   visRows.forEach(r => { buckets[getApptBucket(r.apptDate, r.refund)].count++; });
-  // Count netbox picked — device picked = Yes, split by whether appt is today or previous
+  // Count netbox picked today:
+  // - "today's appt"  = apptDate=today AND netbox=Yes
+  // - "prev appt"     = apptDate≠today AND pickupDate=today (explicitly picked today from old appt)
+  const t0 = today0();
   const netboxYes = r => ['yes','picked','collected','done','delivered'].includes((r.netbox || '').toLowerCase());
+  const isPickupToday = r => { const pd = parseDate(r.pickupDate); if (!pd) return false; pd.setHours(0,0,0,0); return pd.getTime() === t0.getTime(); };
   const pickedFromToday = visRows.filter(r => netboxYes(r) && getApptBucket(r.apptDate, r.refund) === 'today').length;
-  const pickedFromPrev  = visRows.filter(r => netboxYes(r) && getApptBucket(r.apptDate, r.refund) !== 'today').length;
+  const pickedFromPrev  = visRows.filter(r => isPickupToday(r) && getApptBucket(r.apptDate, r.refund) !== 'today').length;
   const totalPickedToday = pickedFromToday + pickedFromPrev;
   buckets.today.extra = totalPickedToday > 0
     ? `📦 ${pickedFromToday} today's appt | ${pickedFromPrev} prev appt`
