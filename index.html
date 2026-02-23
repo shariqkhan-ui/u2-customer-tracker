@@ -1484,19 +1484,10 @@ function renderOldPartnerBucket() {
   const total  = opRows.length;
 
   // Picked today — try oldPartner value as date, then pickupDate, then apptDate
-  const t0 = today0();
-  // "Picked by Wiom today" = old-partner rows where Device Picked = Yes AND date = today
-  const pickedByWiomToday = opRows.filter(r => {
-    if (!['yes','picked','collected','done','delivered'].includes(r.netbox.toLowerCase())) return false;
-    const candidates = [r.oldPartner, r.pickupDate, r.apptDate];
-    return candidates.some(str => {
-      if (!str || str === '—') return false;
-      const pd = parseDate(str);
-      if (!pd) return false;
-      pd.setHours(0,0,0,0);
-      return pd.getTime() === t0.getTime();
-    });
-  }).length;
+  // "Picked by Wiom Today" = old-partner rows where Device Picked = Yes
+  const pickedByWiomToday = opRows.filter(r =>
+    ['yes','picked','collected','done','delivered'].includes((r.netbox || '').toLowerCase())
+  ).length;
 
   // Fixed ₹2000 per device
   const totalAmt = total * 2000;
