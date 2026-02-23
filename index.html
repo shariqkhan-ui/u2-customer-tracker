@@ -1485,7 +1485,9 @@ function renderOldPartnerBucket() {
 
   // Picked today — try oldPartner value as date, then pickupDate, then apptDate
   const t0 = today0();
-  const pickedToday = opRows.filter(r => {
+  // "Picked by Wiom today" = old-partner rows where Device Picked = Yes AND date = today
+  const pickedByWiomToday = opRows.filter(r => {
+    if (!['yes','picked','collected','done','delivered'].includes(r.netbox.toLowerCase())) return false;
     const candidates = [r.oldPartner, r.pickupDate, r.apptDate];
     return candidates.some(str => {
       if (!str || str === '—') return false;
@@ -1508,8 +1510,8 @@ function renderOldPartnerBucket() {
       </div>
       <div class="old-partner-divider"></div>
       <div class="old-partner-stat">
-        <div class="old-partner-stat-val">${pickedToday}</div>
-        <div class="old-partner-stat-lbl">Picked Today</div>
+        <div class="old-partner-stat-val">${pickedByWiomToday}</div>
+        <div class="old-partner-stat-lbl">Picked by Wiom Today</div>
       </div>
       <div class="old-partner-divider"></div>
       <div class="old-partner-stat">
