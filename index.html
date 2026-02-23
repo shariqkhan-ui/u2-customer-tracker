@@ -1067,13 +1067,7 @@ function renderDaySummary() {
 
   const dayLabels = ['Today', 'Yesterday', '2 Days Ago'];
 
-  // For each day, aggregate rows where pickupDate matches
-  // For old-partner rows (col AA filled), use col AA date as fallback when pickupDate is blank
-  const effectivePickupDate = r => {
-    if (r.pickupDate && r.pickupDate !== '—') return r.pickupDate;
-    if (r.oldPartner && r.oldPartner !== '—') return r.oldPartner;
-    return null;
-  };
+  // For each day, aggregate rows where effectivePickupDate matches
   const dayData = days.map((day, i) => {
     const rows = visRows.filter(r => {
       const dateStr = effectivePickupDate(r);
@@ -1441,6 +1435,13 @@ function today0() {
   const t = new Date(); t.setHours(0,0,0,0); return t;
 }
 
+// Use col AA date as fallback when pickupDate is blank (old-partner rows)
+function effectivePickupDate(r) {
+  if (r.pickupDate && r.pickupDate !== '—') return r.pickupDate;
+  if (r.oldPartner && r.oldPartner !== '—') return r.oldPartner;
+  return null;
+}
+
 function getApptBucket(dateStr, refundStatus) {
   const d = parseDate(dateStr);
   if (!d) return 'none';
@@ -1527,22 +1528,14 @@ function renderAppointments() {
   visRows.forEach(r => { buckets[getApptBucket(r.apptDate, r.refund)].count++; });
   // Count netbox picked today split by appointment source
   const t0 = today0();
-  const pickedFromToday = visRows.filter(r => {
-    const pd = parseDate(r.pickupDate);
+  const isPickedToday = r => {
+    const pd = parseDate(effectivePickupDate(r));
     if (!pd) return false;
     pd.setHours(0,0,0,0);
-    if (pd.getTime() !== t0.getTime()) return false;
-    // appointment was also today
-    return getApptBucket(r.apptDate, r.refund) === 'today';
-  }).length;
-  const pickedFromPrev = visRows.filter(r => {
-    const pd = parseDate(r.pickupDate);
-    if (!pd) return false;
-    pd.setHours(0,0,0,0);
-    if (pd.getTime() !== t0.getTime()) return false;
-    // appointment was NOT today (previous)
-    return getApptBucket(r.apptDate, r.refund) !== 'today';
-  }).length;
+    return pd.getTime() === t0.getTime();
+  };
+  const pickedFromToday = visRows.filter(r => isPickedToday(r) && getApptBucket(r.apptDate, r.refund) === 'today').length;
+  const pickedFromPrev  = visRows.filter(r => isPickedToday(r) && getApptBucket(r.apptDate, r.refund) !== 'today').length;
   const totalPickedToday = pickedFromToday + pickedFromPrev;
   buckets.today.extra = totalPickedToday > 0
     ? `📦 ${pickedFromToday} today's appt | ${pickedFromPrev} prev appt`
