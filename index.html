@@ -1068,9 +1068,17 @@ function renderDaySummary() {
   const dayLabels = ['Today', 'Yesterday', '2 Days Ago'];
 
   // For each day, aggregate rows where pickupDate matches
+  // For old-partner rows (col AA filled), use col AA date as fallback when pickupDate is blank
+  const effectivePickupDate = r => {
+    if (r.pickupDate && r.pickupDate !== '—') return r.pickupDate;
+    if (r.oldPartner && r.oldPartner !== '—') return r.oldPartner;
+    return null;
+  };
   const dayData = days.map((day, i) => {
     const rows = visRows.filter(r => {
-      const pd = parseDate(r.pickupDate);
+      const dateStr = effectivePickupDate(r);
+      if (!dateStr) return false;
+      const pd = parseDate(dateStr);
       if (!pd) return false;
       pd.setHours(0,0,0,0);
       return pd.getTime() === day.getTime();
@@ -1093,9 +1101,9 @@ function renderDaySummary() {
     totalAmt:  acc.totalAmt  + d.totalAmt,
   }), { count: 0, deviceAmt: 0, planAmt: 0, totalAmt: 0 });
 
-  // FTD — Final Till Date: all visible rows that have a valid pickupDate
+  // FTD — Final Till Date: all visible rows with a valid pickup date (incl. old-partner col AA date)
   const ftd = visRows.reduce((acc, r) => {
-    if (!parseDate(r.pickupDate)) return acc;
+    if (!parseDate(effectivePickupDate(r))) return acc;
     return {
       count:     acc.count     + 1,
       deviceAmt: acc.deviceAmt + parseNum(r.deviceAmt),
