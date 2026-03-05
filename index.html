@@ -1360,6 +1360,7 @@ function renderTable() {
     { key: 'planAmt',     label: 'Plan Refund Amt'  },
     { key: 'deviceAmt',   label: 'Device Amount'    },
     { key: 'totalAmt',    label: 'Total Amount'     },
+    { key: 'partner',     label: 'Partner'          },
   ];
 
   head.innerHTML = `<tr>
@@ -1394,6 +1395,7 @@ function renderTable() {
       <td class="amt-cell">${amtCell(r.planAmt)}</td>
       <td class="amt-cell">${amtCell(r.deviceAmt)}</td>
       <td class="amt-cell">${amtCell(r.totalAmt)}</td>
+      <td>${esc(r.partner)}</td>
     </tr>
   `).join('');
 
@@ -1407,6 +1409,7 @@ function renderTable() {
       <td class="amt-cell" style="padding:10px 16px; color:var(--primary-light);">${formatINR(sumP)}</td>
       <td class="amt-cell" style="padding:10px 16px; color:var(--orange);">${formatINR(sumD)}</td>
       <td class="amt-cell" style="padding:10px 16px; color:var(--primary);">${formatINR(sumT)}</td>
+      <td></td>
     </tr>
   ` : '';
 }
