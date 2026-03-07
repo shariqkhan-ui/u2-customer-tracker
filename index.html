@@ -1503,14 +1503,16 @@ function effectivePickupDate(r) {
 }
 
 // Single shared "picked on day" definition used by ALL 3 sections
-// A row counts as picked on a day if:
-//   netbox = Yes  AND  pickupDate = day  (appointment date is NOT used — it's scheduled, not actual)
+// A row counts as picked on a day if netbox = Yes AND:
+//   - pickupDate is set → match pickupDate ONLY (prevents double-counting)
+//   - pickupDate not set → fall back to apptDate (agents often skip filling pickup date)
 function isPickedOnDay(r, day) {
   const nv = (r.netbox || '').toLowerCase();
   if (!['yes','picked','collected','done','delivered'].includes(nv)) return false;
   const pd = effectivePickupDate(r);
-  if (!pd) return false;
-  const d = parseDate(pd);
+  const dateStr = pd || r.apptDate;
+  if (!dateStr) return false;
+  const d = parseDate(dateStr);
   if (!d) return false;
   d.setHours(0,0,0,0);
   return d.getTime() === day.getTime();
