@@ -765,7 +765,7 @@ let cfg = {
   scriptUrl: '',
   apiKey: '', sheetId: '1a3-7ELS0nxScrFbFR45I9z_QbQdPnqbKIcbHmmujsO8',
   sheetName: 'main sheet',
-  cols: { name:2, mobile:0, recharge:18, netbox:22, refund:24, call:17, planAmt:8, deviceAmt:9, totalAmt:10, apptDate:14, pickupDate:23, rechargeAmt:20, partner:3, oldPartner:27 }
+  cols: { name:2, mobile:0, recharge:18, netbox:22, refund:24, call:17, planAmt:8, deviceAmt:9, totalAmt:10, apptDate:14, pickupDate:23, rechargeAmt:20, partner:3, oldPartner:27, internetBlocked:21 }
 };
 
 (function restoreConfig() {
@@ -1036,6 +1036,7 @@ function parseRows(rows) {
       rechargeAmt: val(r, c.rechargeAmt),
       partner:     val(r, c.partner),
       oldPartner:  val(r, c.oldPartner),
+      internetBlocked: val(r, c.internetBlocked),
     }));
   visRows = [...allRows];
   renderAll();
@@ -1216,6 +1217,7 @@ function renderKPIs() {
   const refDone   = exact('refund','yes','done','refunded','completed','processed');
   const connected = exact('call','connected','answered');
   const dnp       = exact('call','dnp','did not pick','no answer','not answered');
+  const cxBlocked = exact('internetBlocked','yes');
   const pct = n => tot ? Math.round(n/tot*100)+'%' : '—';
 
   const sumPlan   = d.reduce((s, r) => s + parseNum(r.planAmt),   0);
@@ -1229,6 +1231,9 @@ function renderKPIs() {
     ${kpiCard('c-yellow', '💰', refDone,                   'Refund Done',        pct(refDone)+' complete')}
     ${kpiCard('c-teal',   '📞', connected,                 'Connected',          pct(connected)+' of total')}
     ${kpiCard('c-red',    '📵', dnp,                       'DNP',                pct(dnp)+' of total')}
+    ${kpiCard('c-orange', '&#128274;', cxBlocked,                 'Cx App Blocked',     pct(cxBlocked)+' of total')}
+    ${kpiCard('c-orange', '🔒', cxBlocked,                 'Cx App Blocked',     pct(cxBlocked)+' of total')}
+    ${kpiCard('c-orange', '🔒', cxBlocked,                 'Cx App Blocked',     pct(cxBlocked)+' of total')}
     ${kpiCardAmt('c-purple', '🧾', sumPlan,   'Plan Refund Total')}
     ${kpiCardAmt('c-orange', '📱', sumDevice, 'Device Amount')}
     ${kpiCardAmt('c-cyan',   '💎', sumTotal,  'Total Amount')}
@@ -1499,17 +1504,16 @@ function effectivePickupDate(r) {
 
 // Single shared "picked on day" definition used by ALL 3 sections
 // A row counts as picked on a day if:
-//   netbox = Yes  AND  (pickupDate = day  OR  apptDate = day)
+//   netbox = Yes  AND  pickupDate = day  (appointment date is NOT used — it's scheduled, not actual)
 function isPickedOnDay(r, day) {
   const nv = (r.netbox || '').toLowerCase();
   if (!['yes','picked','collected','done','delivered'].includes(nv)) return false;
-  const matchDate = str => {
-    const d = parseDate(str);
-    if (!d) return false;
-    d.setHours(0,0,0,0);
-    return d.getTime() === day.getTime();
-  };
-  return matchDate(effectivePickupDate(r)) || matchDate(r.apptDate);
+  const pd = effectivePickupDate(r);
+  if (!pd) return false;
+  const d = parseDate(pd);
+  if (!d) return false;
+  d.setHours(0,0,0,0);
+  return d.getTime() === day.getTime();
 }
 
 function getApptBucket(dateStr, refundStatus) {
@@ -1689,6 +1693,7 @@ function renderFilterSummary() {
   const refDone   = exact('refund','yes','done','refunded','completed','processed');
   const connected = exact('call','connected','answered');
   const dnp       = exact('call','dnp','did not pick','no answer','not answered');
+  const cxBlocked = exact('internetBlocked','yes');
   const sumP      = d.reduce((s, r) => s + parseNum(r.planAmt),   0);
   const sumD      = d.reduce((s, r) => s + parseNum(r.deviceAmt), 0);
   const sumT      = d.reduce((s, r) => s + parseNum(r.totalAmt),  0);
