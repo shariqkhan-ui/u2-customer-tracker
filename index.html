@@ -765,7 +765,7 @@ let cfg = {
   scriptUrl: '',
   apiKey: '', sheetId: '1a3-7ELS0nxScrFbFR45I9z_QbQdPnqbKIcbHmmujsO8',
   sheetName: 'main sheet',
-  cols: { name:2, mobile:0, recharge:18, netbox:22, refund:24, call:17, planAmt:8, deviceAmt:9, totalAmt:10, apptDate:13, pickupDate:23, rechargeAmt:20, partner:3, internetBlocked:21 }
+  cols: { name:2, mobile:0, recharge:18, netbox:22, refund:24, call:17, planAmt:8, deviceAmt:9, totalAmt:10, apptDate:13, pickupDate:23, rechargeAmt:20, partner:3, internetBlocked:21, oldPartner:28 }
 };
 
 (function restoreConfig() {
@@ -1044,6 +1044,7 @@ function autoDetectCols(header) {
     netbox:          find('device picked'),
     pickupDate:      find('pickup date'),
     refund:          find('refund done'),
+    oldPartner:      find('nqt ground', 'ground remark'),
   };
   // Merge: use detected index if found, otherwise keep cfg.cols fallback
   const merged = { ...cfg.cols };
@@ -1597,8 +1598,8 @@ function renderOldPartnerBucket() {
   const el = document.getElementById('oldPartnerBucket');
   if (!el) return;
 
-  // Rows where col AA (oldPartner) is filled (partner installed own device)
-  const opRows = visRows.filter(r => r.oldPartner && r.oldPartner !== '—' && r.oldPartner.trim() !== '');
+  // Rows where NQT Ground Remarks mentions partner picking up / installing own device
+  const opRows = visRows.filter(r => r.oldPartner && r.oldPartner !== '—' && r.oldPartner.toLowerCase().includes('partner'));
   const total  = opRows.length;
 
   // Picked today — try oldPartner value as date, then pickupDate, then apptDate
