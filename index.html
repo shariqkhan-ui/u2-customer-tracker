@@ -1018,8 +1018,47 @@ function finishLoad(rows) {
   generateAlerts();
 }
 
+// Auto-detect column indices from the header row by keyword matching.
+// Falls back to cfg.cols if a header can't be matched.
+function autoDetectCols(header) {
+  const h = header.map(s => String(s).toLowerCase().trim());
+  const find = (...keywords) => {
+    for (const kw of keywords) {
+      const idx = h.findIndex(s => s.includes(kw));
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+  const detected = {
+    mobile:          find('mobile'),
+    name:            find('cx name', 'customer name'),
+    partner:         find('partner'),
+    planAmt:         find('plan refund', 'plan amount'),
+    deviceAmt:       find('device amount'),
+    totalAmt:        find('total refund', 'total amount'),
+    apptDate:        find('appointment'),
+    call:            find('calling status'),
+    recharge:        find('net recharge done', 'recharge done'),
+    rechargeAmt:     find('net recharge amount', 'recharge amount'),
+    internetBlocked: find('internet blocked'),
+    netbox:          find('device picked'),
+    pickupDate:      find('pickup date'),
+    refund:          find('refund done'),
+  };
+  // Merge: use detected index if found, otherwise keep cfg.cols fallback
+  const merged = { ...cfg.cols };
+  for (const [key, idx] of Object.entries(detected)) {
+    if (idx !== -1) merged[key] = idx;
+  }
+  // Warn if key columns couldn't be found
+  const missing = ['mobile','name','apptDate','call','netbox','refund']
+    .filter(k => merged[k] === -1 || merged[k] === undefined);
+  if (missing.length) toast(`⚠️ Could not detect columns: ${missing.join(', ')}`, 'error');
+  return merged;
+}
+
 function parseRows(rows) {
-  const c = cfg.cols;
+  const c = rows.length > 0 ? autoDetectCols(rows[0]) : cfg.cols;
   allRows = rows.slice(1)
     .filter(r => r.some(x => x && String(x).trim()))
     .map((r, i) => ({
